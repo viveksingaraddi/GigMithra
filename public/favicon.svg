@@ -1,4 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M32 2C20 2 10 12 10 24c0 14 22 38 22 38s22-24 22-38C54 12 44 2 32 2z" fill="#ff6b00"></path>
-  <circle cx="32" cy="24" r="10" fill="white"></circle>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background Circle -->
+  <circle cx="50" cy="50" r="48" fill="#0f172a"></circle>
+
+  <!-- Letter G -->
+  <path d="M65 50
+           A15 15 0 1 1 50 35
+           H65
+           V45
+           H52
+           V55
+           H75
+           V50
+           A25 25 0 1 0 50 75" fill="#ff6b00"></path>
+
+  <!-- Worker Dot -->
+  <circle cx="70" cy="30" r="5" fill="#22c55e"></circle>
 </svg>
