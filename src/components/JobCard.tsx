@@ -15,13 +15,13 @@ export default function JobCard({ job, showApplyButton = true, applicationStatus
   const { user } = useAuth();
   const { applyToJob } = useData();
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!user) {
       toast.error('Please login to apply for jobs');
       return;
     }
 
-    const success = applyToJob({
+    const success = await applyToJob({
       jobId: job.id,
       workerId: user.id,
       workerName: user.name,

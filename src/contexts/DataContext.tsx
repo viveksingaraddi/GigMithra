@@ -1,142 +1,117 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Job, Application } from '@/types';
+import { apiRequest } from '@/lib/api';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   jobs: Job[];
   applications: Application[];
-  addJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
-  applyToJob: (application: Omit<Application, 'id' | 'appliedAt'>) => boolean;
-  updateApplicationStatus: (applicationId: string, status: Application['status']) => void;
+  addJob: (job: Omit<Job, 'id' | 'createdAt'>) => Promise<void>;
+  applyToJob: (application: Omit<Application, 'id' | 'appliedAt'>) => Promise<boolean>;
+  updateApplicationStatus: (applicationId: string, status: Application['status']) => Promise<void>;
   getJobById: (jobId: string) => Job | undefined;
   getApplicationsForJob: (jobId: string) => Application[];
   getApplicationsForWorker: (workerId: string) => Application[];
   getJobsForAuthoriser: (authoriserId: string) => Job[];
+  refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const JOBS_KEY = 'eventwork_jobs';
-const APPLICATIONS_KEY = 'eventwork_applications';
+const mapJob = (job: any): Job => ({
+  id: job._id,
+  authoriserId: job.authoriserId,
+  authoriserName: job.authoriserName,
+  companyName: job.companyName,
+  eventType: job.eventType,
+  workType: job.workType,
+  workersRequired: job.workersRequired,
+  paymentPerDay: job.paymentPerDay,
+  date: job.date,
+  startTime: job.startTime,
+  endTime: job.endTime,
+  location: job.location,
+  description: job.description,
+  createdAt: job.createdAt,
+});
 
-// Sample initial jobs for demo
-const SAMPLE_JOBS: Job[] = [
-  {
-    id: '1',
-    authoriserId: 'sample-auth-1',
-    authoriserName: 'Rajesh Kumar',
-    companyName: 'Royal Caterers',
-    eventType: 'wedding',
-    workType: 'serving',
-    workersRequired: 10,
-    paymentPerDay: 800,
-    date: '2026-02-15',
-    startTime: '10:00',
-    endTime: '22:00',
-    location: 'Mumbai',
-    description: 'Grand wedding event at Taj Hotel. Looking for experienced servers. Uniform provided. Meals included.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    authoriserId: 'sample-auth-2',
-    authoriserName: 'Priya Sharma',
-    companyName: 'Annapurna Catering',
-    eventType: 'reception',
-    workType: 'table_setup',
-    workersRequired: 5,
-    paymentPerDay: 600,
-    date: '2026-02-20',
-    startTime: '14:00',
-    endTime: '20:00',
-    location: 'Delhi',
-    description: 'Reception party for 200 guests. Need workers for table setup and decoration arrangement.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    authoriserId: 'sample-auth-3',
-    authoriserName: 'Amit Patel',
-    companyName: 'Shubh Caterers',
-    eventType: 'temple_function',
-    workType: 'water_service',
-    workersRequired: 8,
-    paymentPerDay: 500,
-    date: '2026-02-18',
-    startTime: '06:00',
-    endTime: '14:00',
-    location: 'Bangalore',
-    description: 'Temple inauguration ceremony. Workers needed for water and refreshment service to devotees.',
-    createdAt: new Date().toISOString(),
-  },
-];
+const mapApplication = (application: any): Application => ({
+  id: application._id,
+  jobId: application.jobId,
+  workerId: application.workerId,
+  workerName: application.workerName,
+  workerPhone: application.workerPhone,
+  workerLocation: application.workerLocation,
+  status: application.status,
+  appliedAt: application.createdAt,
+});
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
 
+  const refreshData = async () => {
+    try {
+      const jobsResponse = await apiRequest<any[]>('/api/jobs');
+      setJobs(jobsResponse.map(mapJob));
+
+      if (!isAuthenticated || !user) {
+        setApplications([]);
+        return;
+      }
+
+      if (user.userType === 'worker') {
+        const workerApplications = await apiRequest<any[]>('/api/applications/mine');
+        setApplications(workerApplications.map(mapApplication));
+      } else {
+        const myJobs = await apiRequest<any[]>('/api/jobs/mine');
+        const mappedMyJobs = myJobs.map(mapJob);
+        let allApps: Application[] = [];
+
+        for (const job of mappedMyJobs) {
+          const jobApps = await apiRequest<any[]>(`/api/applications/job/${job.id}`);
+          allApps = allApps.concat(jobApps.map(mapApplication));
+        }
+        setApplications(allApps);
+      }
+    } catch (_error) {
+      setJobs([]);
+      setApplications([]);
+    }
+  };
+
   useEffect(() => {
-    // Load jobs from localStorage or use sample data
-    const storedJobs = localStorage.getItem(JOBS_KEY);
-    if (storedJobs) {
-      setJobs(JSON.parse(storedJobs));
-    } else {
-      setJobs(SAMPLE_JOBS);
-      localStorage.setItem(JOBS_KEY, JSON.stringify(SAMPLE_JOBS));
-    }
+    refreshData();
+  }, [isAuthenticated, user?.id, user?.userType]);
 
-    // Load applications from localStorage
-    const storedApplications = localStorage.getItem(APPLICATIONS_KEY);
-    if (storedApplications) {
-      setApplications(JSON.parse(storedApplications));
-    }
-  }, []);
-
-  const saveJobs = (updatedJobs: Job[]) => {
-    setJobs(updatedJobs);
-    localStorage.setItem(JOBS_KEY, JSON.stringify(updatedJobs));
+  const addJob = async (jobData: Omit<Job, 'id' | 'createdAt'>) => {
+    await apiRequest('/api/jobs', {
+      method: 'POST',
+      body: JSON.stringify(jobData),
+    });
+    await refreshData();
   };
 
-  const saveApplications = (updatedApplications: Application[]) => {
-    setApplications(updatedApplications);
-    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(updatedApplications));
-  };
-
-  const addJob = (jobData: Omit<Job, 'id' | 'createdAt'>) => {
-    const newJob: Job = {
-      ...jobData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    const updatedJobs = [newJob, ...jobs];
-    saveJobs(updatedJobs);
-  };
-
-  const applyToJob = (applicationData: Omit<Application, 'id' | 'appliedAt'>): boolean => {
-    // Check if already applied
-    const existingApplication = applications.find(
-      (a) => a.jobId === applicationData.jobId && a.workerId === applicationData.workerId
-    );
-
-    if (existingApplication) {
+  const applyToJob = async (applicationData: Omit<Application, 'id' | 'appliedAt'>): Promise<boolean> => {
+    try {
+      await apiRequest('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({ jobId: applicationData.jobId }),
+      });
+      await refreshData();
+      return true;
+    } catch (_error) {
       return false;
     }
-
-    const newApplication: Application = {
-      ...applicationData,
-      id: crypto.randomUUID(),
-      appliedAt: new Date().toISOString(),
-    };
-
-    const updatedApplications = [newApplication, ...applications];
-    saveApplications(updatedApplications);
-    return true;
   };
 
-  const updateApplicationStatus = (applicationId: string, status: Application['status']) => {
-    const updatedApplications = applications.map((app) =>
-      app.id === applicationId ? { ...app, status } : app
-    );
-    saveApplications(updatedApplications);
+  const updateApplicationStatus = async (applicationId: string, status: Application['status']) => {
+    await apiRequest(`/api/applications/${applicationId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    await refreshData();
   };
 
   const getJobById = (jobId: string) => jobs.find((job) => job.id === jobId);

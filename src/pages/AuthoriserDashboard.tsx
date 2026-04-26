@@ -10,17 +10,18 @@ import { toast } from 'sonner';
 import { EVENT_TYPES, WORK_TYPES } from '@/types';
 
 export default function AuthoriserDashboard() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { getJobsForAuthoriser, getApplicationsForJob, updateApplicationStatus } = useData();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!isAuthenticated || user?.userType !== 'authoriser') {
       navigate('/authoriser-login');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isAuthLoading]);
 
-  if (!user) return null;
+  if (isAuthLoading || !user) return null;
 
   const myJobs = getJobsForAuthoriser(user.id);
   
@@ -32,13 +33,13 @@ export default function AuthoriserDashboard() {
   const pendingApplications = allApplications.filter(app => app.status === 'pending');
   const totalWorkers = allApplications.filter(app => app.status === 'accepted').length;
 
-  const handleAccept = (applicationId: string, workerName: string) => {
-    updateApplicationStatus(applicationId, 'accepted');
+  const handleAccept = async (applicationId: string, workerName: string) => {
+    await updateApplicationStatus(applicationId, 'accepted');
     toast.success(`${workerName} has been accepted!`);
   };
 
-  const handleReject = (applicationId: string, workerName: string) => {
-    updateApplicationStatus(applicationId, 'rejected');
+  const handleReject = async (applicationId: string, workerName: string) => {
+    await updateApplicationStatus(applicationId, 'rejected');
     toast.info(`${workerName}'s application rejected`);
   };
 

@@ -8,17 +8,18 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 export default function MyApplications() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { getApplicationsForWorker, getJobById } = useData();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!isAuthenticated || user?.userType !== 'worker') {
       navigate('/worker-login');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isAuthLoading]);
 
-  if (!user) return null;
+  if (isAuthLoading || !user) return null;
 
   const applications = getApplicationsForWorker(user.id);
 

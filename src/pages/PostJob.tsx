@@ -28,7 +28,7 @@ const WORK_TYPES = [
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow'];
 
 export default function PostJob() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { addJob } = useData();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +46,13 @@ export default function PostJob() {
   });
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!isAuthenticated || user?.userType !== 'authoriser') {
       navigate('/authoriser-login');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isAuthLoading]);
 
-  if (!user) return null;
+  if (isAuthLoading || !user) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -63,7 +64,7 @@ export default function PostJob() {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    addJob({
+    await addJob({
       authoriserId: user.id,
       authoriserName: user.name,
       companyName: user.companyName || user.name,

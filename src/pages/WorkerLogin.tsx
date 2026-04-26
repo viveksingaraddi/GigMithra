@@ -21,7 +21,7 @@ export default function WorkerLogin() {
     // Simulate loading
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const success = login(phone, password, 'worker');
+    const success = await login(phone, password, 'worker');
     
     if (success) {
       toast.success('Welcome back!');

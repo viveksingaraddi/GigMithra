@@ -41,7 +41,7 @@ export default function WorkerSignup() {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const success = signup({
+    const success = await signup({
       name: formData.name,
       phone: formData.phone,
       password: formData.password,

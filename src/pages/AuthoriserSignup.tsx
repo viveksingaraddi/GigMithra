@@ -42,7 +42,7 @@ export default function AuthoriserSignup() {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const success = signup({
+    const success = await signup({
       name: formData.name,
       companyName: formData.companyName,
       phone: formData.phone,

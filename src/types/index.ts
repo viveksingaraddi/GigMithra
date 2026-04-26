@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  password: string;
+  password?: string;
   location: string;
   profilePhoto?: string;
   userType: UserType;

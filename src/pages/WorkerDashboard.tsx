@@ -8,17 +8,18 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 export default function WorkerDashboard() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { jobs, getApplicationsForWorker } = useData();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!isAuthenticated || user?.userType !== 'worker') {
       navigate('/worker-login');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isAuthLoading]);
 
-  if (!user) return null;
+  if (isAuthLoading || !user) return null;
 
   const userApplications = getApplicationsForWorker(user.id);
   const appliedJobIds = userApplications.map(app => app.jobId);

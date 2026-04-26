@@ -1,82 +1,104 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserType } from '@/types';
+import { apiRequest, tokenStorage } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (phone: string, password: string, userType: UserType) => boolean;
-  signup: (userData: Omit<User, 'id' | 'createdAt'>) => boolean;
+  login: (phone: string, password: string, userType: UserType) => Promise<boolean>;
+  signup: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USERS_KEY = 'eventwork_users';
-const SESSION_KEY = 'eventwork_session';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const sessionData = localStorage.getItem(SESSION_KEY);
-    if (sessionData) {
-      const sessionUser = JSON.parse(sessionData);
-      setUser(sessionUser);
-    }
-  }, []);
+    const bootstrapSession = async () => {
+      const token = tokenStorage.get();
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
-  const getUsers = (): User[] => {
-    const usersData = localStorage.getItem(USERS_KEY);
-    return usersData ? JSON.parse(usersData) : [];
-  };
-
-  const saveUsers = (users: User[]) => {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  };
-
-  const login = (phone: string, password: string, userType: UserType): boolean => {
-    const users = getUsers();
-    const foundUser = users.find(
-      (u) => u.phone === phone && u.password === password && u.userType === userType
-    );
-
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(foundUser));
-      return true;
-    }
-    return false;
-  };
-
-  const signup = (userData: Omit<User, 'id' | 'createdAt'>): boolean => {
-    const users = getUsers();
-    
-    // Check if phone already exists for this user type
-    const existingUser = users.find(
-      (u) => u.phone === userData.phone && u.userType === userData.userType
-    );
-    
-    if (existingUser) {
-      return false;
-    }
-
-    const newUser: User = {
-      ...userData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      try {
+        const response = await apiRequest<{ user: any }>('/api/auth/me');
+        const backendUser = response.user;
+        setUser({
+          id: backendUser._id,
+          name: backendUser.name,
+          phone: backendUser.phone,
+          location: backendUser.location,
+          userType: backendUser.userType,
+          companyName: backendUser.companyName ?? undefined,
+          createdAt: backendUser.createdAt,
+        });
+      } catch (_error) {
+        tokenStorage.clear();
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    users.push(newUser);
-    saveUsers(users);
-    setUser(newUser);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-    return true;
+    bootstrapSession();
+  }, []);
+
+  const login = async (phone: string, password: string, userType: UserType): Promise<boolean> => {
+    try {
+      const response = await apiRequest<{ user: any; token: string }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ phone, password, userType }),
+      });
+
+      tokenStorage.set(response.token);
+      const backendUser = response.user;
+      setUser({
+        id: backendUser._id,
+        name: backendUser.name,
+        phone: backendUser.phone,
+        location: backendUser.location,
+        userType: backendUser.userType,
+        companyName: backendUser.companyName ?? undefined,
+        createdAt: backendUser.createdAt,
+      });
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  };
+
+  const signup = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<boolean> => {
+    try {
+      const response = await apiRequest<{ user: any; token: string }>('/api/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+
+      tokenStorage.set(response.token);
+      const backendUser = response.user;
+      setUser({
+        id: backendUser._id,
+        name: backendUser.name,
+        phone: backendUser.phone,
+        location: backendUser.location,
+        userType: backendUser.userType,
+        companyName: backendUser.companyName ?? undefined,
+        createdAt: backendUser.createdAt,
+      });
+      return true;
+    } catch (_error) {
+      return false;
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem(SESSION_KEY);
+    tokenStorage.clear();
   };
 
   return (
@@ -87,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         isAuthenticated: !!user,
+        isLoading,
       }}
     >
       {children}

@@ -20,7 +20,7 @@ export default function AuthoriserLogin() {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const success = login(phone, password, 'authoriser');
+    const success = await login(phone, password, 'authoriser');
     
     if (success) {
       toast.success('Welcome back!');
